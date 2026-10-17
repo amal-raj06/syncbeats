@@ -8,6 +8,7 @@ interface Props {
   roomId: string;
   role: "host" | "guest";
   userName: string;
+  onLeave?: () => void;
 }
 
 interface VideoItem {
@@ -24,7 +25,7 @@ interface Member {
   role: string;
 }
 
-export default function RoomControls({ roomId, role, userName }: Props) {
+export default function RoomControls({ roomId, role, userName, onLeave }: Props) {
   const [connected, setConnected] = useState(false);
   const [ping, setPing] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -168,6 +169,17 @@ export default function RoomControls({ roomId, role, userName }: Props) {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleLeaveRoom = () => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+    if (onLeave) {
+      onLeave();
+    } else {
+      window.location.href = "/";
+    }
+  };
 
   const togglePlayPause = () => {
     if (!playerRef.current || !currentVideo || !socketRef.current) return;
@@ -319,9 +331,20 @@ export default function RoomControls({ roomId, role, userName }: Props) {
 
       {/* Top Bar */}
       <div className="relative z-10 flex items-center justify-between">
-        <span className="px-3.5 py-1 bg-indigo-500/10 border border-indigo-400/30 backdrop-blur rounded-full text-xs text-indigo-300 font-mono font-bold">
-          ROOM: <span className="text-white">{roomId}</span>
-        </span>
+        <div className="flex items-center gap-2">
+          {/* Back/Leave Button */}
+          <button
+            onClick={handleLeaveRoom}
+            className="px-2.5 py-1 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 backdrop-blur rounded-full text-xs text-purple-200 font-medium transition flex items-center gap-1"
+          >
+            ← Leave
+          </button>
+
+          <span className="px-3.5 py-1 bg-indigo-500/10 border border-indigo-400/30 backdrop-blur rounded-full text-xs text-indigo-300 font-mono font-bold">
+            ROOM: <span className="text-white">{roomId}</span>
+          </span>
+        </div>
+
         <span className="text-xs text-purple-200/70 flex items-center gap-1.5 font-medium">
           <span className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`}></span>
           {connected ? (
