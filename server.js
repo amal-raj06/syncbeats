@@ -9,7 +9,8 @@ const io = new Server(httpServer, {
   },
 });
 
-const PORT = 4000;
+// Read Render's assigned port dynamically, default to 4000 locally
+const PORT = process.env.PORT || 4000;
 const rooms = {};
 
 io.on("connection", (socket) => {
@@ -109,5 +110,5 @@ io.on("connection", (socket) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`WebSocket server running on http://localhost:${PORT}`);
+  console.log(`WebSocket server running on port ${PORT}`);
 });
