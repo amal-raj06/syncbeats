@@ -159,6 +159,38 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
     };
   }, [roomId, role, userName]);
 
+  // Web Media Session API integration (Essential for Brave, Android Chrome, and iOS lockscreen playback)
+  useEffect(() => {
+    if ("mediaSession" in navigator && currentVideo) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentVideo.title || "SyncBeats Track",
+        artist: currentVideo.channel || "SyncBeats Live Room",
+        album: "SyncBeats",
+        artwork: [
+          {
+            src: currentVideo.thumbnail || `https://img.youtube.com/vi/${currentVideo.id}/hqdefault.jpg`,
+            sizes: "512x512",
+            type: "image/jpeg",
+          },
+        ],
+      });
+
+      navigator.mediaSession.setActionHandler("play", () => {
+        if (playerRef.current) {
+          playerRef.current.playVideo();
+          setIsPlaying(true);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler("pause", () => {
+        if (playerRef.current) {
+          playerRef.current.pauseVideo();
+          setIsPlaying(false);
+        }
+      });
+    }
+  }, [currentVideo]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
@@ -289,7 +321,6 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
 
   const adjustOffset = (seconds: number) => {
     const now = Date.now();
-    // Throttle clicks to at least 250ms apart to prevent iframe audio buffer loops
     if (now - lastNudgeTimeRef.current < 250) return;
     lastNudgeTimeRef.current = now;
 
@@ -305,13 +336,15 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
+  // Player options tuned to prevent iOS/Brave tab suspension
   const opts: YouTubeProps["opts"] = {
-    height: "200",
-    width: "200",
+    height: "1",
+    width: "1",
     playerVars: {
       autoplay: 1,
       controls: 0,
       modestbranding: 1,
+      playsinline: 1,
     },
   };
 
