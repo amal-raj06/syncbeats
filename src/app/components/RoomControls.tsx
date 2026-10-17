@@ -49,6 +49,7 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
   const isRemoteAction = useRef(false);
   const currentVideoIdRef = useRef<string | null>(null);
   const latencyRef = useRef<number>(0);
+  const lastNudgeTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const socketUrl =
@@ -287,6 +288,11 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
   };
 
   const adjustOffset = (seconds: number) => {
+    const now = Date.now();
+    // Throttle clicks to at least 250ms apart to prevent iframe audio buffer loops
+    if (now - lastNudgeTimeRef.current < 250) return;
+    lastNudgeTimeRef.current = now;
+
     if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
       const curr = playerRef.current.getCurrentTime();
       playerRef.current.seekTo(curr + seconds, true);
