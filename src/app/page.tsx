@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import RoomControls from "./components/RoomControls";
 
 export default function Home() {
@@ -46,6 +47,18 @@ export default function Home() {
         className="absolute bottom-10 right-10 w-[280px] h-[280px] rounded-full pointer-events-none opacity-25 blur-[80px]"
         style={{ background: "radial-gradient(circle, #10b981 0%, transparent 70%)" }}
       />
+
+      {/* Floating User Manual Button */}
+      <Link
+        href="/manual"
+        className="fixed bottom-6 right-6 w-11 h-11 bg-indigo-600/80 hover:bg-indigo-500 border border-indigo-400/40 backdrop-blur-xl rounded-full text-white font-extrabold text-lg flex items-center justify-center shadow-[0_10px_25px_rgba(99,102,241,0.5)] transition active:scale-90 z-50 group"
+        title="User Manual & Instructions"
+      >
+        ?
+        <span className="absolute right-14 bg-black/80 text-purple-200 text-xs px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap border border-white/10 shadow-lg">
+          How to use SyncBeats
+        </span>
+      </Link>
 
       {/* Glassmorphic Main Card */}
       <div 
