@@ -51,6 +51,9 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
   const latencyRef = useRef<number>(0);
   const lastNudgeTimeRef = useRef<number>(0);
 
+  // Tracks if the user interrupted audio locally via WhatsApp/Instagram/call
+  const isLocallyInterruptedRef = useRef(false);
+
   useEffect(() => {
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL ||
@@ -130,6 +133,9 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
     socket.on("sync-action", ({ action, currentTime, serverTimestamp }) => {
       if (!playerRef.current || typeof playerRef.current.getCurrentTime !== "function") return;
 
+      // If user is currently listening to WhatsApp/Instagram reels locally, ignore remote sync
+      if (isLocallyInterruptedRef.current && action !== "pause") return;
+
       isRemoteAction.current = true;
       const networkDelay = (Date.now() - serverTimestamp + latencyRef.current) / 1000;
       const targetTime = currentTime + networkDelay;
@@ -159,7 +165,25 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
     };
   }, [roomId, role, userName]);
 
-  // Web Media Session API integration (Essential for Brave, Android Chrome, and iOS lockscreen playback)
+  // Handle returning from local media interruptions (WhatsApp voice note or Instagram Reels)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && isLocallyInterruptedRef.current) {
+        isLocallyInterruptedRef.current = false;
+        // Re-request latest state from server to catch up with where others reached
+        if (socketRef.current) {
+          socketRef.current.emit("join-room", { roomId, userName, role });
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [roomId, userName, role]);
+
+  // Media Session API integration
   useEffect(() => {
     if ("mediaSession" in navigator && currentVideo) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -295,6 +319,14 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
       socketRef.current.emit("sync-action", { roomId, action: "play", currentTime: currTime });
     } else if (event.data === 2) {
       setIsPlaying(false);
+      
+      // Check if pause was triggered because user switched apps to WhatsApp/Instagram or lost audio focus
+      if (document.hidden || document.visibilityState === "hidden") {
+        isLocallyInterruptedRef.current = true;
+        // DO NOT broadcast pause to the rest of the room!
+        return;
+      }
+
       socketRef.current.emit("sync-action", { roomId, action: "pause", currentTime: currTime });
     } else if (event.data === 0) {
       setIsPlaying(false);
@@ -336,7 +368,7 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  // Player options tuned to prevent iOS/Brave tab suspension
+  // Chrome Background Option Tuning
   const opts: YouTubeProps["opts"] = {
     height: "1",
     width: "1",
@@ -412,9 +444,9 @@ export default function RoomControls({ roomId, role, userName, onLeave }: Props)
         </div>
       </div>
 
-      {/* Hidden YouTube Player */}
+      {/* Chrome Background Player Fix (1px footprint avoids tab throttle) */}
       {currentVideo && (
-        <div className="h-0 w-0 opacity-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-0 w-[1px] h-[1px] opacity-10 overflow-hidden pointer-events-none z-0">
           <YouTube
             videoId={currentVideo.id}
             opts={opts}
