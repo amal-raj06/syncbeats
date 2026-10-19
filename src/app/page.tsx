@@ -90,7 +90,7 @@ export default function Home() {
             </label>
             <input
               type="text"
-              placeholder="e.g. Amal"
+              placeholder="e.g. Your Name"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               className="w-full px-4 py-3.5 bg-black/40 border border-white/10 rounded-2xl text-sm text-white placeholder-white/20 focus:outline-none focus:border-indigo-400 transition shadow-inner"
