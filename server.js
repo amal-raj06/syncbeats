@@ -9,7 +9,6 @@ const io = new Server(httpServer, {
   },
 });
 
-// Read Render's assigned port dynamically, default to 4000 locally
 const PORT = process.env.PORT || 4000;
 const rooms = {};
 
@@ -29,6 +28,7 @@ io.on("connection", (socket) => {
         queue: [],
         members: {},
         volume: 100,
+        isTransitioning: false, // Lock to prevent multi-client double queue skipping
       };
     }
 
@@ -71,23 +71,43 @@ io.on("connection", (socket) => {
     }
   });
 
+  // FIX: Auto-play immediately if queue was added while no video was playing
   socket.on("add-to-queue", ({ roomId, video }) => {
-    if (rooms[roomId]) {
-      rooms[roomId].queue.push(video);
-      io.to(roomId).emit("update-queue", { queue: rooms[roomId].queue });
+    const room = rooms[roomId];
+    if (!room) return;
+
+    if (!room.currentVideo) {
+      // Nothing is playing, play this video immediately
+      room.currentVideo = video;
+      io.to(roomId).emit("change-video", { video, autoPlay: true });
+    } else {
+      // Something is currently playing, append to queue
+      room.queue.push(video);
+      io.to(roomId).emit("update-queue", { queue: room.queue });
     }
   });
 
+  // FIX: Single transition lock prevents multiple clients from skipping songs simultaneously on track end
   socket.on("play-next", ({ roomId }) => {
-    if (rooms[roomId] && rooms[roomId].queue.length > 0) {
-      const nextVideo = rooms[roomId].queue.shift();
-      rooms[roomId].currentVideo = nextVideo;
+    const room = rooms[roomId];
+    if (!room || room.isTransitioning) return;
+
+    room.isTransitioning = true;
+
+    if (room.queue.length > 0) {
+      const nextVideo = room.queue.shift();
+      room.currentVideo = nextVideo;
       io.to(roomId).emit("change-video", { video: nextVideo, autoPlay: true });
-      io.to(roomId).emit("update-queue", { queue: rooms[roomId].queue });
-    } else if (rooms[roomId]) {
-      rooms[roomId].currentVideo = null;
+      io.to(roomId).emit("update-queue", { queue: room.queue });
+    } else {
+      room.currentVideo = null;
       io.to(roomId).emit("change-video", { video: null, autoPlay: false });
     }
+
+    // Release lock after 1 second
+    setTimeout(() => {
+      if (room) room.isTransitioning = false;
+    }, 1000);
   });
 
   socket.on("remove-from-queue", ({ roomId, index }) => {
